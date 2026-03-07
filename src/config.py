@@ -17,5 +17,10 @@ FRAME_HEIGHT = 480
 DISPLAY_SIZE = (FRAME_WIDTH * 2, FRAME_HEIGHT)
 LEFT_CALIBRATION_FOLDER = "images/stereoCalibrationLeft"
 RIGHT_CALIBRATION_FOLDER = "images/stereoCalibrationRight"
-WEBSOCKET_PORT = 8765  #
+
+# Websocket ports for different services
+VIDEO_WEBSOCKET_PORT = 8765  # binary frames stream
+STATUS_WEBSOCKET_PORT = 8766  # JSON system status and command channel
+
 FRAME_SEND_INTERVAL = 0.033  # ~30 FPS
+STATUS_SEND_INTERVAL = 0.1   # how often to push system status (seconds)

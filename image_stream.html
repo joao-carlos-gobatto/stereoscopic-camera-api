@@ -1,46 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Visão Estéreo</title>
+    <title>Stereo Vision</title>
 </head>
 <body>
-    <h1>Stream Estéreo via Websocket</h1>
-    <img id="stream" style="width: 1280px; height: 480px;" alt="Stream">
-    <p>Pressione 's' para salvar imagens no servidor</p>
-    <p>Pressione 'r' para resetar pastas de calibração no servidor</p>
+    <h1>Stereo Stream via Websocket</h1>
+    <div>
+        <div style="display:inline-block">
+            <img id="stream-left" style="width: 640px; height: 480px;" alt="Left camera">
+            <p id="status-left"></p>
+        </div>
+        <div style="display:inline-block">
+            <img id="stream-right" style="width: 640px; height: 480px;" alt="Right camera">
+            <p id="status-right"></p>
+        </div>
+    </div>
+    <p>Press 's' to save images on the server</p>
+    <p>Press 'r' to reset calibration folders on the server</p>
     <script>
-        const ws = new WebSocket('ws://localhost:8765');  // Substitua por IP/porta do servidor
-        ws.binaryType = 'blob';
-        ws.onopen = function() {
-            console.log('Conectado ao websocket');
-        };
-        ws.onmessage = function(event) {
-            if (event.data instanceof Blob) {  // Imagens são binárias (JPG)
-                const img = document.getElementById('stream');
-                const url = URL.createObjectURL(event.data);
-                img.src = url;
-                // Libera URL anterior para evitar memory leak
+        // video stream connection (binary images); each packet begins with
+        // an ASCII side identifier ('L' or 'R') followed by JPEG bytes.
+        const videoWs = new WebSocket('ws://localhost:8765');
+        videoWs.binaryType = 'blob';
+        videoWs.onopen = () => console.log('Connected to video websocket');
+        videoWs.onmessage = (event) => {
+            if (!(event.data instanceof Blob)) return;
+            const reader = new FileReader();
+            reader.onload = function() {
+                const data = new Uint8Array(this.result);
+                const side = String.fromCharCode(data[0]);
+                const imgBlob = new Blob([data.subarray(1)], {type: 'image/jpeg'});
+                const url = URL.createObjectURL(imgBlob);
+                const imgEl = document.getElementById(
+                    side === 'L' ? 'stream-left' : 'stream-right'
+                );
+                imgEl.src = url;
                 setTimeout(() => URL.revokeObjectURL(url), 100);
-            } else {
-                console.log('Mensagem de texto recebida:', event.data);  // Se precisar de respostas do server
+            };
+            reader.readAsArrayBuffer(event.data);
+        };
+        videoWs.onclose = () => console.log('Video websocket disconnected');
+
+        // status/command channel (JSON)
+        const statusWs = new WebSocket('ws://localhost:8766');
+        statusWs.onopen = () => console.log('Connected to status websocket');
+        statusWs.onmessage = (event) => {
+            try {
+                const status = JSON.parse(event.data);
+                console.log('System status', status);
+                // update connection indicators
+                document.getElementById('status-left').textContent =
+                    status.leftCameraConnected ? '' : 'Left camera disconnected';
+                document.getElementById('status-right').textContent =
+                    status.rightCameraConnected ? '' : 'Right camera disconnected';
+            } catch (e) {
+                console.log('Non-JSON message on status channel', event.data);
             }
         };
-        ws.onclose = function() {
-            console.log('Desconectado');
-        };
-        // Example: send different actions
+        statusWs.onclose = () => console.log('Status websocket disconnected');
+
+        // Example: send actions via the status channel
         document.addEventListener('keydown', function(event) {
+            if (!statusWs || statusWs.readyState !== WebSocket.OPEN) return;
             if (event.key === 's') {
-                ws.send(JSON.stringify({ action: 'save' }));
+                statusWs.send(JSON.stringify({ action: 'save' }));
             } else if (event.key === 'r') {
-                ws.send(JSON.stringify({ action: 'reset' }));
-            } else if (event.key === 'q') {  // example future action
-                ws.send(JSON.stringify({ action: 'shutdown' }));
+                statusWs.send(JSON.stringify({ action: 'reset' }));
+            } else if (event.key === 'q') {
+                statusWs.send(JSON.stringify({ action: 'shutdown' }));
             }
         });
-
-    // Or add real buttons:
-    // <button onclick="ws.send(JSON.stringify({action:'save'}))">Save Image Pair</button>
     </script>
 </body>
 </html>

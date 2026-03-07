@@ -11,3 +11,15 @@ fps_data = {
     for port in CAMERAS
 }
 connected_cameras = set()
+
+# additional boolean statuses tracked by the server
+broadcasting = False        # True while discovery broadcasts are being sent
+calibrating = False         # allow UI to inform that calibration is in progress
+
+
+def get_connection_flags():
+    """Return booleans indicating which cameras are connected."""
+    return {
+        "rightCameraConnected": STREAM_PORT_RIGHT in connected_cameras,
+        "leftCameraConnected": STREAM_PORT_LEFT in connected_cameras,
+    }
