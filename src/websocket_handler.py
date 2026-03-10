@@ -117,6 +117,14 @@ async def receive_commands(websocket):
                 print(f"Invalid JSON received: {message}")
                 continue
 
+            # Handle ping messages
+            if data.get("type") == "ping":
+                try:
+                    await websocket.send(json.dumps({"type": "pong"}))
+                except Exception as e:
+                    print(f"Failed to send pong: {e}")
+                continue
+
             action = data.get("action")
             if not action:
                 print("Message missing 'action' field")
@@ -149,12 +157,52 @@ async def receive_commands(websocket):
             break
 
 
+async def receive_ping(websocket):
+    """Receive and handle ping messages for video websocket."""
+    while not src.state.stop_event.is_set():
+        try:
+            message = await websocket.recv()
+            if not isinstance(message, str):
+                print("Received non-text message (binary?) → ignoring")
+                continue
+
+            try:
+                data = json.loads(message)
+            except json.JSONDecodeError:
+                print(f"Invalid JSON received: {message}")
+                continue
+
+            # Handle ping messages
+            if data.get("type") == "ping":
+                try:
+                    await websocket.send(json.dumps({"type": "pong"}))
+                except Exception as e:
+                    print(f"Failed to send pong: {e}")
+                continue
+            else:
+                print(f"Unexpected message on video websocket: {data}")
+
+        except websockets.exceptions.ConnectionClosed:
+            break
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Unexpected error in video receive loop: {e}")
+            break
+
+
 async def video_handler(websocket):
     # simple stream, every cycle sends left then right frame with prefix
     print("Client connected to video stream (split frames)")
+    send_task = asyncio.create_task(send_frames(websocket))
+    receive_task = asyncio.create_task(receive_ping(websocket))
     try:
-        await send_frames(websocket)
+        await asyncio.gather(send_task, receive_task)
+    except asyncio.CancelledError:
+        pass
     finally:
+        send_task.cancel()
+        receive_task.cancel()
         print("Video client disconnected")
 
 
