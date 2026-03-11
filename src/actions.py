@@ -35,13 +35,6 @@ async def handle_reset(payload: Dict[str, Any]):
     print("Action 'reset' executed")
 
 
-@register_action("start_calibration")
-async def handle_start_calibration(payload: Dict[str, Any]):
-    from src import state
-    state.set_miscellaneous_flag("calibrating", True)
-    print("Action 'start_calibration' executed")
-
-
 @register_action("stop_calibration")
 async def handle_stop_calibration(payload: Dict[str, Any]):
     from src import state

@@ -12,6 +12,20 @@ from src.config import (
 )
 import src.state
 
+# build a helper to encode a single frame
+def encode(frame):
+    if frame is None:
+        placeholder = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
+        _, buf = cv2.imencode('.jpg', placeholder)
+    else:
+        canvas = frame.copy()
+        # Add overlays based on mode
+        mode = src.state.get_status_copy()["controlMode"]
+        if mode == 1:  # Calibration mode
+            canvas = process_calibration_frame(canvas)
+        _, buf = cv2.imencode('.jpg', canvas)
+    return buf.tobytes()
+
 
 def process_calibration_frame(frame):
     """Add calibration overlays to the frame."""
@@ -35,20 +49,7 @@ async def send_frames(websocket):
         with src.state.frame_lock:
             left = src.state.latest_frames[STREAM_PORT_LEFT]
             right = src.state.latest_frames[STREAM_PORT_RIGHT]
-        # build a helper to encode a single frame
-        def encode(frame):
-            if frame is None:
-                placeholder = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
-                _, buf = cv2.imencode('.jpg', placeholder)
-            else:
-                canvas = frame.copy()
-                # Add overlays based on mode
-                mode = src.state.get_status_copy()["controlMode"]
-                if mode == 1:  # Calibration mode
-                    canvas = process_calibration_frame(canvas)
-                _, buf = cv2.imencode('.jpg', canvas)
-            return buf.tobytes()
-
+            
         try:
             left_bytes = encode(left)
             await websocket.send(b"L" + left_bytes)

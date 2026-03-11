@@ -9,7 +9,7 @@ from src.utils import stereo_calibration_setup
 from src.broadcast import send_broadcast
 from src.receiver import stream_receiver
 from src.watchdog import watchdog
-from src.websocket_handler import start_websocket_server
+from src.server import start_websocket_server
 
 def main():
     warnings.filterwarnings("ignore", category=RuntimeWarning, module="cv2")

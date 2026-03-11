@@ -4,7 +4,6 @@ from src.config import BROADCAST_MSG, BROADCAST_ADDR, BROADCAST_PORT, BROADCAST_
 import src.state
 
 def send_broadcast():
-
     src.state.broadcasting = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)

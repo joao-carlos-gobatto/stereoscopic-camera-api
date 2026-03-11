@@ -4,8 +4,8 @@ from src.config import (
     VIDEO_WEBSOCKET_PORT,
     CONTROL_WEBSOCKET_PORT,
 )
-from src.control_websocket import status_handler, connect_rover
-from src.video_websocket import video_handler
+from src.webSockets.control_websocket import status_handler, connect_rover
+from src.webSockets.video_websocket import video_handler
 
 
 async def server_main():
