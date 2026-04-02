@@ -1,4 +1,5 @@
 import os
+import socket
 import shutil
 import cv2
 from datetime import datetime
@@ -45,3 +46,16 @@ def reset_calibration_folders():
     delete_folder_contents(LEFT_CALIBRATION_FOLDER)
     delete_folder_contents(RIGHT_CALIBRATION_FOLDER)
     print("Calibration folders cleaned")
+
+def get_broadcast_addr():
+    """Get the broadcast address for the local subnet."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        ip_parts = local_ip.split('.')
+        ip_parts[3] = '255'
+        return '.'.join(ip_parts)
+    except Exception:
+        return "192.168.15.255"  # Fallback

@@ -11,12 +11,67 @@ import warnings
 import shutil
 
 # ==============================
+# UTILIDADES
+# ==============================
+
+def get_broadcast_addr():
+    """Get the broadcast address for the local subnet."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        ip_parts = local_ip.split('.')
+        ip_parts[3] = '255'
+        return '.'.join(ip_parts)
+    except Exception:
+        return "192.168.15.255"  # Fallback
+
+def get_local_ip():
+    """Get the local IP address of the machine."""
+    try:
+        # Create a socket and connect to a dummy address to get local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Connect to Google DNS
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception:
+        return "127.0.0.1"  # Fallback to localhost
+
+def delete_folder_contents(folder):
+
+    if not os.path.isdir(folder):
+        return
+
+    for f in os.listdir(folder):
+
+        p=os.path.join(folder,f)
+
+        try:
+            if os.path.isfile(p):
+                os.unlink(p)
+            else:
+                shutil.rmtree(p)
+        except:
+            pass
+
+
+def stereo_calibration_setup():
+
+    os.makedirs(leftCalibrationFolder,exist_ok=True)
+    os.makedirs(rightCalibrationFolder,exist_ok=True)
+
+    delete_folder_contents(leftCalibrationFolder)
+    delete_folder_contents(rightCalibrationFolder)
+
+# ==============================
 # CONFIGURAÇÕES
 # ==============================
 
-BROADCAST_MSG = b"ESP_DISCOVERY"
-BROADCAST_ADDR = "192.168.15.255"
+BROADCAST_ADDR = get_broadcast_addr()
 BROADCAST_PORT = 12345
+BROADCAST_MSG = b'ESP_DISCOVERY'
 
 STREAM_PORT_RIGHT = 8080
 STREAM_PORT_LEFT  = 8081
@@ -84,36 +139,6 @@ reproj_error_r=None
 
 objp = np.zeros((CHESSBOARD_SIZE[0]*CHESSBOARD_SIZE[1],3), np.float32)
 objp[:,:2] = np.mgrid[0:CHESSBOARD_SIZE[0],0:CHESSBOARD_SIZE[1]].T.reshape(-1,2)
-
-# ==============================
-# UTILIDADES
-# ==============================
-
-def delete_folder_contents(folder):
-
-    if not os.path.isdir(folder):
-        return
-
-    for f in os.listdir(folder):
-
-        p=os.path.join(folder,f)
-
-        try:
-            if os.path.isfile(p):
-                os.unlink(p)
-            else:
-                shutil.rmtree(p)
-        except:
-            pass
-
-
-def stereo_calibration_setup():
-
-    os.makedirs(leftCalibrationFolder,exist_ok=True)
-    os.makedirs(rightCalibrationFolder,exist_ok=True)
-
-    delete_folder_contents(leftCalibrationFolder)
-    delete_folder_contents(rightCalibrationFolder)
 
 # ==============================
 # POSE
@@ -427,6 +452,25 @@ def display_loop():
     cv2.destroyAllWindows()
 
 # ==============================
+# BROADCAST THREAD
+# ==============================
+
+def broadcast_discovery(stop_event, interval=2.0):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    server_ip = get_local_ip()
+    print(f"Broadcast started with server IP: {server_ip}, broadcasting to {BROADCAST_ADDR}:{BROADCAST_PORT}")
+    while not stop_event.is_set():
+        try:
+            s.sendto(BROADCAST_MSG, (BROADCAST_ADDR, BROADCAST_PORT))
+            print(f"Sent broadcast: {BROADCAST_MSG.decode('utf-8')}")
+        except Exception as e:
+            print(f"Broadcast error: {e}")
+        stop_event.wait(interval)
+    s.close()
+    print("Broadcast stopped")
+
+# ==============================
 # STREAM
 # ==============================
 
@@ -469,6 +513,9 @@ def main():
     stereo_calibration_setup()
 
     threads=[]
+
+    broadcaster = threading.Thread(target=broadcast_discovery, args=(stop_event,), daemon=True)
+    broadcaster.start()
 
     for port,info in CAMERAS.items():
 
