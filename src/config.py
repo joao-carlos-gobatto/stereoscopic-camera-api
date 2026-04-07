@@ -10,12 +10,24 @@ CAMERAS = {
 BROADCAST_INTERVAL = 2.0
 CAMERA_TIMEOUT = 12.0
 
-# VGA
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
-DISPLAY_SIZE = (FRAME_WIDTH * 2, FRAME_HEIGHT)
-LEFT_CALIBRATION_FOLDER = "images/stereoCalibrationLeft"
-RIGHT_CALIBRATION_FOLDER = "images/stereoCalibrationRight"
+FRAME_WIDTH = 240
+FRAME_HEIGHT = 240
+
+# Calibration settings
+CHESSBOARD_SIZE = (7,10)
+MIN_AREA_RATIO = 0.20
+AUTO_CAPTURE_DELAY = 2.0
+POSE_DUPLICATE_THRESHOLD = 40
+MIN_BASELINE = 30
+MAX_BASELINE = 350
+MAX_TILT_DEG = 15
+TARGET_CAPTURE_COUNT = 20
+
+
+LEFT_CALIBRATION_FOLDER = "images/calibration/left"
+RIGHT_CALIBRATION_FOLDER = "images/calibration/right"
+LEFT_SAVED_FOLDER = "images/saved/left"
+RIGHT_SAVED_FOLDER = "images/saved/right"
 
 # Websocket ports for different services
 VIDEO_WEBSOCKET_PORT = 8765  # binary frames stream

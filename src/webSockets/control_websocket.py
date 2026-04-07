@@ -1,14 +1,16 @@
 import asyncio
 import json
 import websockets
+import cv2
 from src.config import (
     ROVER_WEBSOCKET_URL,
     STATUS_SEND_INTERVAL,
     STREAM_PORT_LEFT,
     STREAM_PORT_RIGHT,
+    LEFT_SAVED_FOLDER,
+    RIGHT_SAVED_FOLDER
 )
 import src.state
-from src.actions import get_handler
 
 rover_ws = None
 
@@ -90,29 +92,49 @@ async def receive_commands(websocket):
 
             # Handle command messages (ignored for now)
             if data.get("type") == "command":
-                # TODO: implement command handling
+                if data.get("command") == "drive":
+                    state = data.get("state")
+                    if(state.get("state") == 'press'):
+                        match state.get("key"):
+                            case 'w':
+                                #TODO Build forward message here
+                                rover_message = "Forward"
+                                print("Forward")
+                            case 's':
+                                #TODO Build back message here
+                                rover_message = "Back"
+                                print("Back")
+                            case 'a':
+                                #TODO Build left message here
+                                rover_message = "Left"
+                                print("Left")
+                            case 'd':
+                                #TODO Build right message here
+                                rover_message = "Right"
+                                print("Right")
+                    else:
+                        #TODO Build stop message here
+                        rover_message = "Stop"
+                        print("Stop")
+                
+                if data.get("command") == "saveImage":
+                    #TODO save pictures into saved images's folder
+                    print("Taking pictures")
+                    with src.state.frame_lock:
+                        left = src.state.latest_frames[STREAM_PORT_LEFT]
+                        right = src.state.latest_frames[STREAM_PORT_RIGHT]
+                        name_l = f"{LEFT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
+                        name_r = f"{RIGHT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
+                        cv2.imwrite(name_l,left)
+                        cv2.imwrite(name_r,right)
+                        src.state.add_capture_count()
                 continue
-
-            # Fallback to old action-based messages (for backward compatibility)
-            action = data.get("action")
-            if not action:
-                print("Message missing 'action' field")
-                continue
-
-            handler = get_handler(action)
-            if handler:
-                try:
-                    await handler(data)  # pass the whole payload
-                except Exception as e:
-                    print(f"Error in action '{action}': {e}")
-            else:
-                print(f"Unknown action: {action}")
 
             # If in rover control mode, resend command to rover
-            if src.state.get_status_copy()["controlMode"] == 0:
+            if state.get_status_copy()["controlMode"] == 0:
                 if rover_ws and not rover_ws.closed:
                     try:
-                        await rover_ws.send(message)
+                        await rover_ws.send(rover_message)
                     except Exception as e:
                         print(f"Failed to send to rover: {e}")
                         rover_ws = None

@@ -1,7 +1,7 @@
 import threading
 import time
 import copy
-from src.config import STREAM_PORT_RIGHT, STREAM_PORT_LEFT, CAMERAS
+from src.config import STREAM_PORT_RIGHT, STREAM_PORT_LEFT, CAMERAS, TARGET_CAPTURE_COUNT
 
 stop_event = threading.Event()
 frame_lock = threading.Lock()          # protects frame-related globals
@@ -45,6 +45,18 @@ systemStatus = {
         "gyroscopeYReading": 0,
         "gyroscopeZReading": 0,
     },
+    "takenPictures": {
+        "captureCount": 0,
+    },
+    "stereoCalibrationData": {
+        "calibrationComplete": False,
+        "captureCount": 0,
+        "captureTarget": TARGET_CAPTURE_COUNT,
+        "reproject_error_left":0,
+        "reproject_error_right":0,
+        "lastCaptureTime": 0,
+        "calibration_quality":"Bad"
+    }
 }
 
 
@@ -116,3 +128,12 @@ def get_connection_flags():
         STREAM_PORT_RIGHT in connected_cameras,
         STREAM_PORT_LEFT in connected_cameras,
     )
+
+def get_capture_count():
+    """Return capture count"""
+    return (
+        systemStatus["takenPictures"]["captureCount"]
+    )
+
+def add_capture_count():
+    systemStatus["takenPictures"]["captureCount"] += 1

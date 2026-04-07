@@ -9,6 +9,7 @@ from src.config import (
     STREAM_PORT_LEFT,
     STREAM_PORT_RIGHT,
     FRAME_SEND_INTERVAL,
+    CHESSBOARD_SIZE
 )
 import src.state
 
@@ -32,9 +33,9 @@ def process_calibration_frame(frame):
     if frame is None:
         return frame
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+    ret, corners = cv2.findChessboardCorners(gray, CHESSBOARD_SIZE, None)
     if ret:
-        cv2.drawChessboardCorners(frame, (9, 6), corners, ret)
+        cv2.drawChessboardCorners(frame, CHESSBOARD_SIZE, corners, ret)
     return frame
 
 
