@@ -118,11 +118,10 @@ async def receive_commands(websocket):
                         print("Stop")
                 
                 if data.get("command") == "saveImage":
-                    #TODO save pictures into saved images's folder
                     print("Taking pictures")
                     with src.state.frame_lock:
-                        left = src.state.latest_frames[STREAM_PORT_LEFT]
-                        right = src.state.latest_frames[STREAM_PORT_RIGHT]
+                        left = src.state.latest_frames[STREAM_PORT_LEFT][:,:,0]
+                        right = src.state.latest_frames[STREAM_PORT_RIGHT][:,:,0]
                         name_l = f"{LEFT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
                         name_r = f"{RIGHT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
                         cv2.imwrite(name_l,left)
