@@ -11,3 +11,9 @@ This project exposes two websocket endpoints:
 2. **System status & commands** – JSON objects containing current state (broadcasting, calibrating, camera connectivity and FPS) are pushed periodically. Commands such as `save`, `reset`, `shutdown`, `start_calibration` and `stop_calibration` may be sent on this channel. Default port `8766` (see `CONTROL_WEBSOCKET_PORT`).
 
 Use the example `image_stream.html` for a simple client demonstration.
+
+Installing docker tools for the project:
+ - sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+To run the docker image:
+ - docker compose up
