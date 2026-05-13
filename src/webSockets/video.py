@@ -9,34 +9,19 @@ from src.config import (
     STREAM_PORT_LEFT,
     STREAM_PORT_RIGHT,
     FRAME_SEND_INTERVAL,
-    CHESSBOARD_SIZE
 )
-import src.state
+from src.state import stop_event, frame_lock, latest_frames
+
 
 # build a helper to encode a single frame
 def encode(frame):
     if frame is None:
         placeholder = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
-        _, buf = cv2.imencode('.jpg', placeholder)
+        _, buf = cv2.imencode(".jpg", placeholder)
     else:
         canvas = frame.copy()
-        # Add overlays based on mode
-        mode = src.state.get_status_copy()["controlMode"]
-        if mode == 1:  # Calibration mode
-            canvas = process_calibration_frame(canvas)
-        _, buf = cv2.imencode('.jpg', canvas)
+        _, buf = cv2.imencode(".jpg", canvas)
     return buf.tobytes()
-
-
-def process_calibration_frame(frame):
-    """Add calibration overlays to the frame."""
-    if frame is None:
-        return frame
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    ret, corners = cv2.findChessboardCorners(gray, CHESSBOARD_SIZE, None)
-    if ret:
-        cv2.drawChessboardCorners(frame, CHESSBOARD_SIZE, corners, ret)
-    return frame
 
 
 async def send_frames(websocket):
@@ -46,11 +31,11 @@ async def send_frames(websocket):
 
     Clients can inspect the first byte to decide which <img> to update.
     """
-    while not src.state.stop_event.is_set():
-        with src.state.frame_lock:
-            left = src.state.latest_frames[STREAM_PORT_LEFT]
-            right = src.state.latest_frames[STREAM_PORT_RIGHT]
-            
+    while not stop_event.is_set():
+        with frame_lock:
+            left = latest_frames[STREAM_PORT_LEFT]
+            right = latest_frames[STREAM_PORT_RIGHT]
+
         try:
             left_bytes = encode(left)
             await websocket.send(b"L" + left_bytes)
@@ -63,7 +48,7 @@ async def send_frames(websocket):
 
 async def receive_ping(websocket):
     """Receive and handle ping messages for video websocket."""
-    while not src.state.stop_event.is_set():
+    while not stop_event.is_set():
         try:
             message = await websocket.recv()
             if not isinstance(message, str):

@@ -3,34 +3,37 @@ import json
 import websockets
 import cv2
 from src.config import (
-    ROVER_WEBSOCKET_URL,
     STATUS_SEND_INTERVAL,
     STREAM_PORT_LEFT,
     STREAM_PORT_RIGHT,
-    LEFT_SAVED_FOLDER,
-    RIGHT_SAVED_FOLDER
+    LEFT_IMAGE_FOLDER,
+    RIGHT_IMAGE_FOLDER,
 )
-import src.state
-
-rover_ws = None
+from src.state import (
+    frame_lock,
+    refresh_fps,
+    stop_event,
+    refresh_connection_flags,
+    get_status_copy,
+    set_control_mode,
+    latest_frames,
+    increment_capture_count,
+    get_capture_count,
+)
 
 
 async def send_status(websocket):
     """Periodically send current system status as JSON.
 
-    The status dictionary is built from :data:`src.state.systemStatus` so
+    The status dictionary is built from :data:`systemStatus` so
     that all of the fields requested by the UI are available.  Helper
     functions are used to update FPS and connectivity before each send.
     """
-    while not src.state.stop_event.is_set():
-        with src.state.frame_lock:
-            fps_left = src.state.fps_data[STREAM_PORT_LEFT]["fps"]
-            fps_right = src.state.fps_data[STREAM_PORT_RIGHT]["fps"]
+    while not stop_event.is_set():
         # refresh values that are derived from other globals
-        src.state.refresh_fps(fps_right, fps_left)
-        src.state.refresh_connection_flags()
-        # send a copy so that the lock can be released immediately
-        status = src.state.get_status_copy()
+        refresh_fps()
+        refresh_connection_flags()
+        status = get_status_copy()
         try:
             await websocket.send(json.dumps(status))
         except websockets.exceptions.ConnectionClosed:
@@ -38,22 +41,8 @@ async def send_status(websocket):
         await asyncio.sleep(STATUS_SEND_INTERVAL)
 
 
-async def connect_rover():
-    global rover_ws
-    while not src.state.stop_event.is_set():
-        if rover_ws is None or rover_ws.closed:
-            try:
-                rover_ws = await websockets.connect(ROVER_WEBSOCKET_URL)
-                print("Connected to rover websocket")
-            except Exception as e:
-                print(f"Rover connection failed: {e}")
-                await asyncio.sleep(5)
-        else:
-            await asyncio.sleep(1)
-
-
 async def receive_commands(websocket):
-    while not src.state.stop_event.is_set():
+    while not stop_event.is_set():
         try:
             message = await websocket.recv()
             if not isinstance(message, str):
@@ -78,13 +67,13 @@ async def receive_commands(websocket):
             if data.get("type") == "mode":
                 mode_str = data.get("mode")
                 if mode_str == "control":
-                    src.state.set_control_mode(0)
+                    set_control_mode(0)
                     print("Switched to control mode")
                 elif mode_str == "calibration":
-                    src.state.set_control_mode(1)
+                    set_control_mode(1)
                     print("Switched to calibration mode")
                 elif mode_str == "depth":
-                    src.state.set_control_mode(2)
+                    set_control_mode(2)
                     print("Switched to depth mode")
                 else:
                     print(f"Unknown mode: {mode_str}")
@@ -94,49 +83,51 @@ async def receive_commands(websocket):
             if data.get("type") == "command":
                 if data.get("command") == "drive":
                     state = data.get("state")
-                    if(state.get("state") == 'press'):
+                    if state.get("state") == "press":
                         match state.get("key"):
-                            case 'w':
-                                #TODO Build forward message here
+                            case "w":
+                                # TODO Build forward message here
                                 rover_message = "Forward"
                                 print("Forward")
-                            case 's':
-                                #TODO Build back message here
+                            case "s":
+                                # TODO Build back message here
                                 rover_message = "Back"
                                 print("Back")
-                            case 'a':
-                                #TODO Build left message here
+                            case "a":
+                                # TODO Build left message here
                                 rover_message = "Left"
                                 print("Left")
-                            case 'd':
-                                #TODO Build right message here
+                            case "d":
+                                # TODO Build right message here
                                 rover_message = "Right"
                                 print("Right")
                     else:
-                        #TODO Build stop message here
+                        # TODO Build stop message here
                         rover_message = "Stop"
                         print("Stop")
-                
-                if data.get("command") == "saveImage":
-                    print("Taking pictures")
-                    with src.state.frame_lock:
-                        left = src.state.latest_frames[STREAM_PORT_LEFT][:,:,0]
-                        right = src.state.latest_frames[STREAM_PORT_RIGHT][:,:,0]
-                        name_l = f"{LEFT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
-                        name_r = f"{RIGHT_SAVED_FOLDER}/{src.state.get_capture_count()}.jpg"
-                        cv2.imwrite(name_l,left)
-                        cv2.imwrite(name_r,right)
-                        src.state.add_capture_count()
-                continue
 
-            # If in rover control mode, resend command to rover
-            if state.get_status_copy()["controlMode"] == 0:
-                if rover_ws and not rover_ws.closed:
-                    try:
-                        await rover_ws.send(rover_message)
-                    except Exception as e:
-                        print(f"Failed to send to rover: {e}")
-                        rover_ws = None
+            if data.get("command") == "saveImage":
+                print("Taking pictures")
+
+                with frame_lock:
+                    if (
+                        latest_frames[STREAM_PORT_LEFT] is not None
+                        and latest_frames[STREAM_PORT_RIGHT] is not None
+                    ):
+                        left_image = latest_frames[STREAM_PORT_LEFT][:, :, 0]
+                        right_image = latest_frames[STREAM_PORT_RIGHT][:, :, 0]
+
+                        count = get_capture_count()
+
+                        name_l = f"{LEFT_IMAGE_FOLDER}/{count}.jpg"
+                        name_r = f"{RIGHT_IMAGE_FOLDER}/{count}.jpg"
+
+                        cv2.imwrite(name_l, left_image)
+                        cv2.imwrite(name_r, right_image)
+
+                        increment_capture_count()
+
+            continue
 
         except websockets.exceptions.ConnectionClosed:
             break
